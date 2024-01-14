@@ -43,17 +43,22 @@ data_generator = generate_data()
 
 # create dummy data
 dataset = data_generator.create_all_tables()
-write_data(dataset=dataset)
+data_generator.write_data(dataset=dataset)
 
 # move dummy data
 mv_data = extract()
 mv_data.land_files_to_raw()
+
+# COMMAND ----------
 
 # checkpoint directory
 checkpoint_dir = "gs://bankdatajg/checkpoint"
 
 # raw paths
 files = dbutils.fs.ls('gs://bankdatajg/raw')
+
+# print(f"Executor cores: {sc.defaultParallelism}")
+# spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
 
 # COMMAND ----------
 
@@ -87,6 +92,23 @@ def load_tables(path, name):
 for f in files:
     print(f"Loading: {f.path}\tTable: {f.name[:-1]}_bronze")
     load_tables(path=f.path, name=f.name[:-1])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Bronze Test
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- FIRST RUN
+# MAGIC SELECT
+# MAGIC   customer_id,
+# MAGIC   COUNT(customer_id)
+# MAGIC FROM
+# MAGIC   bronze.customers_bronze
+# MAGIC GROUP BY customer_id
+# MAGIC HAVING COUNT(customer_id)>1;
 
 # COMMAND ----------
 
@@ -169,8 +191,8 @@ class Upsert:
                 MERGE INTO silver.{name}_silver a
                 USING stream_updates b
                 ON {join_cond}
-                WHEN MATCHED THEN UPDATE SET *
                 WHEN NOT MATCHED THEN INSERT *
+                WHEN MATCHED THEN UPDATE SET *
             """
         self.update_temp = update_temp 
         
@@ -241,7 +263,17 @@ query.awaitTermination()
 # MAGIC %sql
 # MAGIC SELECT *
 # MAGIC FROM
-# MAGIC   silver.accounts_silver
+# MAGIC   silver.customers_silver
+# MAGIC WHERE customer_id = 6411
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT process_date, *
+# MAGIC FROM bronze.customers_bronze
+# MAGIC WHERE
+# MAGIC   customer_id = 6411
+# MAGIC ORDER BY process_date
 
 # COMMAND ----------
 
