@@ -1,18 +1,4 @@
 # Databricks notebook source
-# MAGIC %md
-# MAGIC Using Faker Library to generate dummy data.
-# MAGIC Install Link: https://faker.readthedocs.io/en/master/
-
-# COMMAND ----------
-
-# MAGIC %pip install Faker
-
-# COMMAND ----------
-
-dbutils.library.restartPython()
-
-# COMMAND ----------
-
 from faker import Faker
 from collections import defaultdict
 import random
@@ -147,7 +133,7 @@ class generate_data():
         row = {}
         row['customer_id'] =    self.unique_customer_id
         row['address_id'] =     self.unique_address_id
-        row['account_id'] =     self.unique_customer_id
+        row['account_id'] =     self.unique_account_id
         row['first_name'] =     fake.first_name()
         row['last_name'] =      fake.last_name()
         row['dob'] =            fake.date_of_birth(minimum_age=18)

@@ -1,4 +1,13 @@
 # Databricks notebook source
+# MAGIC %run ./installation
+
+# COMMAND ----------
+
+print(f"Executor cores: {sc.defaultParallelism}")
+spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
+
+# COMMAND ----------
+
 # MAGIC %run ./data_source_system
 
 # COMMAND ----------
@@ -13,8 +22,6 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- DROP SCHEMA silver CASCADE;
-# MAGIC -- DROP SCHEMA bronze CASCADE;
 # MAGIC CREATE SCHEMA silver;
 # MAGIC CREATE SCHEMA bronze;
 
@@ -57,9 +64,6 @@ checkpoint_dir = "gs://bankdatajg/checkpoint"
 # raw paths
 files = dbutils.fs.ls('gs://bankdatajg/raw')
 
-# print(f"Executor cores: {sc.defaultParallelism}")
-# spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -96,26 +100,14 @@ for f in files:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Bronze Test
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- FIRST RUN
-# MAGIC SELECT
-# MAGIC   customer_id,
-# MAGIC   COUNT(customer_id)
-# MAGIC FROM
-# MAGIC   bronze.customers_bronze
-# MAGIC GROUP BY customer_id
-# MAGIC HAVING COUNT(customer_id)>1;
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC Silver processes
 
 # COMMAND ----------
+
+# removing dropDups fixes issue.
+# how to handle files w/ dup records inserting to bronze?
+# Ideal:    when new records come, only bring the newest one to update
+#           when new duplicates records come -> ???
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
@@ -125,7 +117,7 @@ accounts_df = (spark.readStream
                     F.col("savings_id").cast("int"),
                     F.col("currency").cast("string"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"))
-                .dropDuplicates(["account_id"]))
+                )
 
 checkings_df = (spark.readStream
                 .table("bronze.checkings_bronze")
@@ -139,7 +131,7 @@ checkings_df = (spark.readStream
                     F.col("account_number").cast("string"),
                     F.col("overdraft_protection").cast("string"),
                     F.col("is_active").cast("string"))
-                .dropDuplicates(["checkings_id"]))
+                )
 
 savings_df = (spark.readStream
                 .table("bronze.savings_bronze")
@@ -153,7 +145,7 @@ savings_df = (spark.readStream
                     F.col("account_number").cast("string"),
                     F.col("overdraft_protection").cast("string"),
                     F.col("is_active").cast("string"))
-                .dropDuplicates(["savings_id"]))
+                )
 
 addresses_df = (spark.readStream
                     .table("bronze.addresses_bronze")
@@ -162,9 +154,8 @@ addresses_df = (spark.readStream
                         F.col("address_line").cast("string"),
                         F.col("city").cast("string"),
                         F.col("state").cast("string"),
-                        F.col("zipcode").cast("int")
+                        F.col("zipcode").cast("int"))
                     )
-                    .dropDuplicates(["address_id"]))
 
 customers_df = (spark.readStream
                     .table("bronze.customers_bronze")
@@ -179,8 +170,7 @@ customers_df = (spark.readStream
                         F.col("ssn").cast("string"),
                         F.col("occupation").cast("string"),
                         F.col("credit_score").cast("int")
-                    )
-                    .dropDuplicates(["customer_id"]))
+                    ))
 
 # COMMAND ----------
 
@@ -191,12 +181,13 @@ class Upsert:
                 MERGE INTO silver.{name}_silver a
                 USING stream_updates b
                 ON {join_cond}
-                WHEN NOT MATCHED THEN INSERT *
                 WHEN MATCHED THEN UPDATE SET *
+                WHEN NOT MATCHED THEN INSERT *
             """
         self.update_temp = update_temp 
         
     def upsert_to_delta(self, microBatchDF, batch):
+        # display(microBatchDF)
         microBatchDF.createOrReplaceTempView(self.update_temp)
         microBatchDF._jdf.sparkSession().sql(self.sql_query)
 
@@ -208,10 +199,12 @@ savings_merge = Upsert("savings", "a.savings_id=b.savings_id")
 
 # COMMAND ----------
 
+mode = "append"
+
 # Upsert silver accounts
 query = (accounts_df.writeStream
                    .foreachBatch(accounts_merge.upsert_to_delta)
-                   .outputMode("update")
+                   .outputMode(mode)
                    .option("checkpointLocation", f"{checkpoint_dir}/accounts_silver")
                    .trigger(availableNow=True)
                    .start())
@@ -221,7 +214,7 @@ query.awaitTermination()
 # Upsert silver customers
 query = (customers_df.writeStream
                    .foreachBatch(customers_merge.upsert_to_delta)
-                   .outputMode("update")
+                   .outputMode(mode)
                    .option("checkpointLocation", f"{checkpoint_dir}/customers_silver")
                    .trigger(availableNow=True)
                    .start())
@@ -231,7 +224,7 @@ query.awaitTermination()
 # Upsert silver checkings
 query = (checkings_df.writeStream
                    .foreachBatch(checkings_merge.upsert_to_delta)
-                   .outputMode("update")
+                   .outputMode(mode)
                    .option("checkpointLocation", f"{checkpoint_dir}/checkings_silver")
                    .trigger(availableNow=True)
                    .start())
@@ -241,7 +234,7 @@ query.awaitTermination()
 # Upsert silver savings
 query = (savings_df.writeStream
                    .foreachBatch(savings_merge.upsert_to_delta)
-                   .outputMode("update")
+                   .outputMode(mode)
                    .option("checkpointLocation", f"{checkpoint_dir}/savings_silver")
                    .trigger(availableNow=True)
                    .start())
@@ -251,30 +244,9 @@ query.awaitTermination()
 # Upsert silver addresses
 query = (addresses_df.writeStream
                    .foreachBatch(address_merge.upsert_to_delta)
-                   .outputMode("update")
+                   .outputMode(mode)
                    .option("checkpointLocation", f"{checkpoint_dir}/addresses_silver")
                    .trigger(availableNow=True)
                    .start())
 
 query.awaitTermination()
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT *
-# MAGIC FROM
-# MAGIC   silver.customers_silver
-# MAGIC WHERE customer_id = 6411
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT process_date, *
-# MAGIC FROM bronze.customers_bronze
-# MAGIC WHERE
-# MAGIC   customer_id = 6411
-# MAGIC ORDER BY process_date
-
-# COMMAND ----------
-
-
