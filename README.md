@@ -4,6 +4,7 @@ This project simulates a batch Databricks pipeline for banking data following th
 The following features and constraints will be added:
 - ~~Add update record creation to source system.~~ **1/15/2024**
 - ~~Upsert update records to silver layer.~~ **1/15/2024**
+- Add joint account record creation tol source system
 - Add duplicate record creation to source system.
 - Create "gold" layer providing potential KPIs.
 - Orchestration of jobs in Databricks Workflow.
