@@ -6,7 +6,9 @@ The following features and constraints will be added:
 - ~~Use AutoLoader to ingest raw data to bronze.~~ **1/13/2024**
 - ~~Add update record creation to source system.~~ **1/15/2024**
 - ~~Upsert update records to silver layer.~~ **1/15/2024**
-- Add joint account record creation tol source system
+- Upgrade hive_metastore to Unity Catalog.
+- Add dbt to project.
+- Add joint account record creation to source system
 - Add duplicate record creation to source system.
 - Create "gold" layer providing potential KPIs.
 - Orchestration of jobs in Databricks Workflow.
