@@ -6,14 +6,14 @@ The following features and constraints will be added:
 - ~~Use AutoLoader to ingest raw data to bronze.~~ **1/13/2024**
 - ~~Add update record creation to source system.~~ **1/15/2024**
 - ~~Upsert update records to silver layer.~~ **1/15/2024**
+- ~~Add Faker library to install on cluster on start-up.~~ **1/16/2024**
+- ~~Create "gold" layer providing potential KPIs.~~ **1/16/2024**
 - Upgrade hive_metastore to Unity Catalog.
 - Add dbt to project.
 - Add joint account record creation to source system
 - Add duplicate record creation to source system.
-- Create "gold" layer providing potential KPIs.
 - Orchestration of jobs in Databricks Workflow.
 - Add logic to delete certain records on request.
-- Add Init script to cluster to always install libraries on startup.
 - Add more tables to data model for possible products seen in banking such as credit cards, mortgages, etc.
 - Adapt pipeline from batch to streaming.
 
