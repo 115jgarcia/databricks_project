@@ -2,6 +2,7 @@
 # MAGIC %sql
 # MAGIC DROP SCHEMA bronze CASCADE;
 # MAGIC DROP SCHEMA silver CASCADE;
+# MAGIC DROP SCHEMA gold CASCADE;
 
 # COMMAND ----------
 
