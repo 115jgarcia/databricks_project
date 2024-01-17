@@ -17,7 +17,7 @@ balancePerState = spark.sql(
             d.address_id = e.address_id
     GROUP BY e.state
     """
-)
+).cache()
 
 balancePerState.write.mode('overwrite').option('mergeSchema', 'true').saveAsTable('gold.daily_balance_per_state')
 balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('append').option('mergeSchema', 'true').saveAsTable('gold.historic_balance_per_state')

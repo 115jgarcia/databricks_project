@@ -307,7 +307,3 @@ balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('ap
 # MAGIC     a.state = b.state AND
 # MAGIC     a.process_date > b.process_date
 # MAGIC ORDER BY a.total DESC;
-
-# COMMAND ----------
-
-
