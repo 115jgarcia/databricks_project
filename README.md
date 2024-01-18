@@ -8,6 +8,7 @@ The following features and constraints will be added:
 - ~~Upsert update records to silver layer.~~ **1/15/2024**
 - ~~Add Faker library to install on cluster on start-up.~~ **1/16/2024**
 - ~~Create "gold" layer providing potential KPIs.~~ **1/16/2024**
+- Update source system sampling of update-records.
 - Upgrade hive_metastore to Unity Catalog.
 - Add dbt to project.
 - Add joint account record creation to source system
