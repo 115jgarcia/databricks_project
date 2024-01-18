@@ -2,7 +2,6 @@
 from faker import Faker
 from collections import defaultdict
 import random
-#import csv
 import datetime
 
 import pyspark.sql.functions as F
@@ -184,42 +183,66 @@ class generate_data():
         return dataset
     
     def updates_checkings(self):
+        spark.sql("SELECT * FROM bronze.checkings_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
         return spark.sql(
             """
             SELECT account_number, randBalUdf(balance) as balance, checkings_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
-            FROM bronze.checkings_bronze
-            WHERE is_active = 'Y'
-            LIMIT 10;
+            FROM _tempUpdateCreation
+            WHERE is_active = 'Y';
             """
         )
     
     def updates_savings(self):
+        spark.sql("SELECT * FROM bronze.savings_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
         return spark.sql(
             """
             SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, savings_id
-            FROM bronze.savings_bronze
-            WHERE is_active = 'Y'
-            LIMIT 10;
+            FROM _tempUpdateCreation
+            WHERE is_active = 'Y';
             """
         )
+        # return spark.sql(
+        #     """
+        #     SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, savings_id
+        #     FROM bronze.savings_bronze
+        #     WHERE is_active = 'Y'
+        #     LIMIT 10;
+        #     """
+        # )
 
     def updates_addresses(self):
+        spark.sql("SELECT * FROM bronze.addresses_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
         return spark.sql(
             """
             SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, randStateUdf() as state, randZipUdf() as zipcode
-            FROM bronze.addresses_bronze
-            LIMIT 5
+            FROM _tempUpdateCreation
+            WHERE is_active = 'Y';
             """
         )
+        # return spark.sql(
+        #     """
+        #     SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, randStateUdf() as state, randZipUdf() as zipcode
+        #     FROM bronze.addresses_bronze
+        #     LIMIT 5
+        #     """
+        # )
 
     def update_customers(self):
+        spark.sql("SELECT * FROM bronze.customers_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
         return spark.sql(
             """
             SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, ssn
-            FROM bronze.customers_bronze
-            LIMIT 15
+            FROM _tempUpdateCreation
+            WHERE is_active = 'Y';
             """
         )
+        # return spark.sql(
+        #     """
+        #     SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, ssn
+        #     FROM bronze.customers_bronze
+        #     LIMIT 15
+        #     """
+        # )
 
     def write_data(self, dataset):
         if dataset is None:
