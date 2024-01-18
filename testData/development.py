@@ -296,14 +296,13 @@ balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('ap
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT
-# MAGIC   a.state,
-# MAGIC   a.process_date,
-# MAGIC   a.total todays_balance,
-# MAGIC   b.total yesterdays_balance
-# MAGIC FROM 
-# MAGIC   gold.historic_balance_per_state a INNER JOIN 
-# MAGIC   gold.historic_balance_per_state b ON
-# MAGIC     a.state = b.state AND
-# MAGIC     a.process_date > b.process_date
-# MAGIC ORDER BY a.total DESC;
+# MAGIC SELECT 
+# MAGIC   customer_id,
+# MAGIC   COUNT(customer_id)
+# MAGIC FROM bronze.customers_bronze
+# MAGIC GROUP BY customer_id
+# MAGIC HAVING COUNT(customer_id) > 1;
+
+# COMMAND ----------
+
+
