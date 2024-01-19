@@ -112,6 +112,7 @@ import pyspark.sql.functions as F
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
+                .dropDuplicates(["account_id", "process_date"])
                 .select(
                     F.col("account_id").cast("int"),
                     F.col("checkings_id").cast("int"),
@@ -122,6 +123,7 @@ accounts_df = (spark.readStream
 
 checkings_df = (spark.readStream
                 .table("bronze.checkings_bronze")
+                .dropDuplicates(["checkings_id", "process_date"])
                 .select(
                     F.col("checkings_id").cast("int"),
                     F.col("balance").cast("double"),
@@ -136,6 +138,7 @@ checkings_df = (spark.readStream
 
 savings_df = (spark.readStream
                 .table("bronze.savings_bronze")
+                .dropDuplicates(["savings_id", "process_date"])
                 .select(
                     F.col("savings_id").cast("int"),
                     F.col("balance").cast("double"),
@@ -150,6 +153,7 @@ savings_df = (spark.readStream
 
 addresses_df = (spark.readStream
                     .table("bronze.addresses_bronze")
+                    .dropDuplicates(["address_id", "process_date"])
                     .select(
                         F.col("address_id").cast("int"),
                         F.col("address_line").cast("string"),
@@ -160,6 +164,7 @@ addresses_df = (spark.readStream
 
 customers_df = (spark.readStream
                     .table("bronze.customers_bronze")
+                    .dropDuplicates(["customer_id", "process_date"])
                     .select(
                         F.col("customer_id").cast("int"),
                         F.col("address_id").cast("int"),
@@ -188,7 +193,11 @@ class Upsert:
         self.update_temp = update_temp 
         
     def upsert_to_delta(self, microBatchDF, batch):
-        # display(microBatchDF)
+        # display(microBatchDF.groupBy('savings_id')
+        #         .agg(F.count('savings_id').alias('cnt'))
+        #         .filter(F.col('cnt')>1)
+        #         .select(F.col('savings_id'))
+        #         )
         microBatchDF.createOrReplaceTempView(self.update_temp)
         microBatchDF._jdf.sparkSession().sql(self.sql_query)
 
@@ -282,26 +291,8 @@ balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('ap
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT *
-# MAGIC FROM gold.daily_balance_per_state;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT *
-# MAGIC FROM gold.historic_balance_per_state
-# MAGIC ORDER BY total DESC;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT 
-# MAGIC   customer_id,
-# MAGIC   COUNT(customer_id)
-# MAGIC FROM bronze.customers_bronze
-# MAGIC GROUP BY customer_id
-# MAGIC HAVING COUNT(customer_id) > 1;
+# MAGIC %md
+# MAGIC # Queries
 
 # COMMAND ----------
 
