@@ -5,6 +5,7 @@ mode = "append"
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
+                .dropDuplicates(["account_id", "process_date"])
                 .select(
                     F.col("account_id").cast("int"),
                     F.col("checkings_id").cast("int"),
@@ -15,6 +16,7 @@ accounts_df = (spark.readStream
 
 checkings_df = (spark.readStream
                 .table("bronze.checkings_bronze")
+                .dropDuplicates(["checkings_id", "process_date"])
                 .select(
                     F.col("checkings_id").cast("int"),
                     F.col("balance").cast("double"),
@@ -29,6 +31,7 @@ checkings_df = (spark.readStream
 
 savings_df = (spark.readStream
                 .table("bronze.savings_bronze")
+                .dropDuplicates(["savings_id", "process_date"])
                 .select(
                     F.col("savings_id").cast("int"),
                     F.col("balance").cast("double"),
@@ -43,6 +46,7 @@ savings_df = (spark.readStream
 
 addresses_df = (spark.readStream
                     .table("bronze.addresses_bronze")
+                    .dropDuplicates(["address_id", "process_date"])
                     .select(
                         F.col("address_id").cast("int"),
                         F.col("address_line").cast("string"),
@@ -53,6 +57,7 @@ addresses_df = (spark.readStream
 
 customers_df = (spark.readStream
                     .table("bronze.customers_bronze")
+                    .dropDuplicates(["customer_id", "process_date"])
                     .select(
                         F.col("customer_id").cast("int"),
                         F.col("address_id").cast("int"),

@@ -195,7 +195,6 @@ class generate_data():
             )
             df = df.limit(1).union(df)
             newRecords = newRecords.union(df)
-        display(newRecords)
         (newRecords.coalesce(1).write.format('csv')
                 .option('header', 'true')
                 .option('delimiter', '|')
@@ -220,7 +219,7 @@ class generate_data():
 
     def updates_addresses(self, newRecords, tableName):
         if self.updates_flag:
-            spark.read.table("bronze.addresses_bronze").filter("is_active = 'Y'").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
+            spark.read.table("bronze.addresses_bronze").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
 
             df = spark.sql(
                 """
