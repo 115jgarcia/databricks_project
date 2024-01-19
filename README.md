@@ -10,7 +10,8 @@ The following features and constraints will be added:
 - ~~Create "gold" layer providing potential KPIs.~~ **1/16/2024**
 - ~~Update source system sampling of update-records.~~ **1/17/2024**
 - ~~Add duplicate record creation to source system.~~ **1/18/2024**
-- Add logic to handle duplicate records.
+- ~~Add logic to handle duplicate records.~~ **1/19/2024**
+- Flag duplicate records at bronze level.
 - Orchestration of jobs in Databricks Workflow.
 - Add logic to delete certain records on request.
 - Upgrade hive_metastore to Unity Catalog.
