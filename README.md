@@ -9,7 +9,7 @@ The following features and constraints will be added:
 - ~~Add Faker library to install on cluster on start-up.~~ **1/16/2024**
 - ~~Create "gold" layer providing potential KPIs.~~ **1/16/2024**
 - ~~Update source system sampling of update-records.~~ **1/17/2024**
-- Add duplicate record creation to source system.
+- ~~Add duplicate record creation to source system.~~ **1/18/2024**
 - Add logic to handle duplicate records.
 - Orchestration of jobs in Databricks Workflow.
 - Add logic to delete certain records on request.
