@@ -63,6 +63,7 @@ spark.udf.register("randZipUdf", randZip)
 
 class generate_data():
     def __init__(self):
+        self.num_of_records = 1000
         self.unique_customer_id =   fake.unique.random_int(100,10000)
         self.unique_account_id =    fake.unique.random_int(100,10000)
         self.unique_address_id =    fake.unique.random_int(100,10000)
@@ -102,11 +103,11 @@ class generate_data():
         row['open_date'] =      timestamp
         return row
     
-    def create_checkings_row(self, acc_timestamp):
+    def create_checkings_row(self, acc_open_timestamp):
         row = {}
         row['checkings_id'] =           self.unique_checkings_id
         row['balance'] =                random.randrange(-50000000, 50000000)/100
-        row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_timestamp),tzinfo = datetime.timezone.utc))
+        row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
         row['interest_rate'] =          random.randrange(0,50,1)/1000
         row['monthly_fee'] =            random.randrange(0,25,25)
         row['routing_number'] =         fake.aba()
@@ -115,11 +116,11 @@ class generate_data():
         row['is_active'] =              fake.bothify(text='?', letters='YN')
         return row
 
-    def create_savings_row(self, acc_timestamp):
+    def create_savings_row(self, acc_open_timestamp):
         row = {}
         row['savings_id'] =             self.unique_savings_id
         row['balance'] =                random.randrange(100000, 100000000)/100
-        row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_timestamp),tzinfo = datetime.timezone.utc))
+        row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
         row['interest_rate'] =          random.randrange(0,50,1)/1000
         row['deposit_limit'] =          random.randrange(5000,10000,1000)
         row['routing_number'] =         fake.aba()
@@ -151,10 +152,10 @@ class generate_data():
         row['zipcode'] =        fake.postcode()
         return row
 
-    def create_all_tables(self, n=1000):
+    def create_all_tables(self):
         dataset = defaultdict(list)
 
-        for i in range(0,n):
+        for i in range(0,self.num_of_records):
             account_open_date = datetime.datetime.timestamp(fake.date_time_between(tzinfo = datetime.timezone.utc))
             
             # checkings_table
@@ -182,43 +183,112 @@ class generate_data():
         
         return dataset
     
-    def updates_checkings(self):
-        spark.sql("SELECT * FROM bronze.checkings_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
-        return spark.sql(
-            """
-            SELECT account_number, randBalUdf(balance) as balance, checkings_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
-            FROM _tempUpdateCreation
-            WHERE is_active = 'Y';
-            """
-        )
+    def updates_checkings(self, newRecords, tableName):
+        if self.updates_flag:
+            spark.read.table("bronze.checkings_bronze").filter("is_active = 'Y'").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
+
+            df = spark.sql(
+                """
+                SELECT account_number, randBalUdf(balance) as balance, checkings_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
+                FROM _tempUpdateCreation;
+                """
+            )
+            df = df.limit(1).union(df)
+            newRecords = newRecords.union(df)
+        display(newRecords)
+        (newRecords.coalesce(1).write.format('csv')
+                .option('header', 'true')
+                .option('delimiter', '|')
+                .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + tableName}"))
     
-    def updates_savings(self):
-        spark.sql("SELECT * FROM bronze.savings_bronze WHERE is_active = 'Y'").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
-        return spark.sql(
+    def updates_savings(self, newRecords, tableName):
+        if self.updates_flag:
+            spark.read.table("bronze.savings_bronze").filter("is_active = 'Y'").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
+
+            df = spark.sql(
+                """
+                SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, savings_id
+                FROM _tempUpdateCreation;
+                """
+            )
+            df = df.limit(1).union(df)
+            newRecords = newRecords.union(df)
+        (newRecords.coalesce(1).write.format('csv')
+                .option('header', 'true')
+                .option('delimiter', '|')
+                .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + tableName}"))
+
+    def updates_addresses(self, newRecords, tableName):
+        if self.updates_flag:
+            spark.read.table("bronze.addresses_bronze").filter("is_active = 'Y'").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
+
+            df = spark.sql(
+                """
+                SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, randStateUdf() as state, randZipUdf() as zipcode
+                FROM _tempUpdateCreation;
+                """
+            )
+            df = df.limit(1).union(df)
+            newRecords = newRecords.union(df)
+        (newRecords.coalesce(1).write.format('csv')
+                .option('header', 'true')
+                .option('delimiter', '|')
+                .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + tableName}"))
+
+    def updates_customers(self, newRecords, tableName):
+        if self.updates_flag:
+            spark.read.table("bronze.customers_bronze").sample(fraction=0.01, seed=0).createOrReplaceTempView("_tempUpdateCreation")
+
+            df = spark.sql(
+                """
+                SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, ssn
+                FROM _tempUpdateCreation;
+                """
+            )
+            df = df.limit(1).union(df)
+            newRecords = newRecords.union(df)
+        (newRecords.coalesce(1).write.format('csv')
+                .option('header', 'true')
+                .option('delimiter', '|')
+                .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + tableName}"))
+
+    def updates_accounts(self, newRecords, tableName):
+        savings_path = ''
+        checkings_path = ''
+
+        files = dbutils.fs.ls('gs://bankdatajg/generator/')
+
+        for a in files:
+            if 'savings' in a.path:
+                savings_path = a.path
+            elif 'checkings' in a.path:
+                checkings_path = a.path
+
+        spark.read.format('csv').option('delimiter', '|').option('header', 'true').load(savings_path).createOrReplaceTempView('tempSavings')
+        spark.read.format('csv').option('delimiter', '|').option('header', 'true').load(checkings_path).createOrReplaceTempView('tempCheckings')
+        
+        newRecords.createOrReplaceTempView('tempAccounts')
+
+        newRecords = spark.sql(
             """
-            SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, savings_id
-            FROM _tempUpdateCreation
-            WHERE is_active = 'Y';
+            SELECT
+                account_id, tempCheckings.checkings_id, tempSavings.savings_id, currency, tempAccounts.open_date
+            FROM
+                tempAccounts LEFT JOIN tempSavings
+                    ON tempAccounts.savings_id = tempSavings.savings_id
+                LEFT JOIN tempCheckings
+                    ON tempAccounts.checkings_id = tempCheckings.checkings_id
             """
         )
 
-    def updates_addresses(self):
-        spark.sql("SELECT * FROM bronze.addresses_bronze").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
-        return spark.sql(
-            """
-            SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, randStateUdf() as state, randZipUdf() as zipcode
-            FROM _tempUpdateCreation;
-            """
-        )
+        spark.catalog.dropTempView('tempSavings')
+        spark.catalog.dropTempView('tempCheckings')
+        spark.catalog.dropTempView('tempAccounts')
 
-    def update_customers(self):
-        spark.sql("SELECT * FROM bronze.customers_bronze").sample(fraction=0.01, seed = 0).createOrReplaceTempView("_tempUpdateCreation")
-        return spark.sql(
-            """
-            SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, ssn
-            FROM _tempUpdateCreation;
-            """
-        )
+        (newRecords.coalesce(1).write.format('csv')
+                .option('header', 'true')
+                .option('delimiter', '|')
+                .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + tableName}"))
 
     def write_data(self, dataset):
         if dataset is None:
@@ -226,80 +296,17 @@ class generate_data():
         else:
             for i in dataset:
                 df = spark.createDataFrame(dataset[i])
-                
                 if i == 'savings':
-                    df = df.sample(fraction=0.5)
-                    if self.updates_flag: 
-                        savings_updates = self.updates_savings()
-                        df = df.union(savings_updates)
-                    (df.coalesce(1).write.format('csv')
-                            .option('header', 'true')
-                            .option('delimiter', '|')
-                            .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + i}"))
+                    self.updates_savings(df.sample(fraction=0.5), i)
                 elif i == 'checkings':
-                    df = df.sample(fraction=0.7)
-                    if self.updates_flag:
-                        checkings_updates = self.updates_checkings()
-                        df = df.union(checkings_updates)
-                    (df.coalesce(1).write.format('csv')
-                            .option('header', 'true')
-                            .option('delimiter', '|')
-                            .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + i}"))
+                    self.updates_checkings(df.sample(fraction=0.7), i)
                 elif i == 'accounts':
-                    savings_path = ''
-                    checkings_path = ''
-
-                    files = dbutils.fs.ls('gs://bankdatajg/generator/')
-
-                    for a in files:
-                        if 'savings' in a.path:
-                            savings_path = a.path
-                        elif 'checkings' in a.path:
-                            checkings_path = a.path
-
-                    spark.read.format('csv').option('delimiter', '|').option('header', 'true').load(savings_path).createOrReplaceTempView('tempSavings')
-                    spark.read.format('csv').option('delimiter', '|').option('header', 'true').load(checkings_path).createOrReplaceTempView('tempCheckings')
-                    
-                    df.createOrReplaceTempView('tempAccounts')
-
-                    df = spark.sql(
-                        """
-                        SELECT
-                            account_id, tempCheckings.checkings_id, tempSavings.savings_id, currency, tempAccounts.open_date
-                        FROM
-                            tempAccounts LEFT JOIN tempSavings
-                                ON tempAccounts.savings_id = tempSavings.savings_id
-                            LEFT JOIN tempCheckings
-                                ON tempAccounts.checkings_id = tempCheckings.checkings_id
-                        """
-                    )
-
-                    spark.catalog.dropTempView('tempSavings')
-                    spark.catalog.dropTempView('tempCheckings')
-                    spark.catalog.dropTempView('tempAccounts')
-
-                    (df.coalesce(1).write.format('csv')
-                            .option('header', 'true')
-                            .option('delimiter', '|')
-                            .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + i}"))
+                    self.updates_accounts(df, i)
                 elif i == 'customers':
-                    if self.updates_flag:
-                        customers_updates = self.update_customers()
-                        df = df.union(customers_updates)
-                    (df.coalesce(1).write.format('csv')
-                            .option('header', 'true')
-                            .option('delimiter', '|')
-                            .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + i}"))
+                    self.updates_customers(df, i)
                 elif i == 'addresses':
-                    if self.updates_flag:
-                        addresses_updates = self.updates_addresses()
-                        df = df.union(addresses_updates)
-                    (df.coalesce(1).write.format('csv')
-                            .option('header', 'true')
-                            .option('delimiter', '|')
-                            .save(f"gs://bankdatajg/generator/{str(datetime.datetime.timestamp(datetime.datetime.now())) + '_' + i}"))
-                
-            self.updates_flag = True
+                    self.updates_addresses(df, i)           
+            if not self.updates_flag: self.updates_flag = True
 
 # COMMAND ----------
 
