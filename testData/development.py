@@ -80,7 +80,7 @@ def load_tables(path, name):
                 .load(path))
 
     query = (query
-                .withColumn("filename", F.input_file_name())
+                .withColumn("file_name", F.input_file_name())
                 .withColumn("process_date", F.current_timestamp()))
     
     query = (query.writeStream
@@ -109,7 +109,6 @@ for f in files:
 #           when new duplicates records come -> ???
 
 import pyspark.sql.functions as F
-import pyspark.sql.types as T
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
@@ -192,9 +191,22 @@ class Upsert:
                 WHEN NOT MATCHED THEN INSERT *
             """
         self.update_temp = update_temp
-        self.tableName = name[:-1]
+        self.tableName = name
         
     def upsert_to_delta(self, microBatchDF, batch):
+        if self.name == 'savings':
+            (microBatchDF
+                .filter("interest_rate" < 0)
+                .select([c for c in microBatchDF.columns if c not in ['file_name']])
+                .write.format("delta")
+                .mode("append")
+                .saveAsTable("silver.record_quarantine"))
+        elif self.name == 'checkings':
+            (microBatchDF
+                .filter("monthly_fee" < 0)
+                .write.format("delta")
+                .mode("append")
+                .saveAsTable("silver.record_quarantine"))
         # display(microBatchDF.groupBy('saving_id')
         #         .agg(F.count('saving_id').alias('cnt'))
         #         .filter(F.col('cnt')>1)
