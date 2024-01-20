@@ -2,10 +2,11 @@
 # MAGIC %sql
 # MAGIC CREATE TABLE IF NOT EXISTS silver.accounts_silver (
 # MAGIC     account_id INT,
-# MAGIC     checkings_id INT,
-# MAGIC     savings_id INT,
+# MAGIC     checking_id INT,
+# MAGIC     saving_id INT,
 # MAGIC     currency STRING,
-# MAGIC     open_date DATE
+# MAGIC     open_date DATE,
+# MAGIC     flag STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/accounts_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -20,7 +21,8 @@
 # MAGIC     email STRING,
 # MAGIC     ssn STRING,
 # MAGIC     occupation STRING,
-# MAGIC     credit_score INT
+# MAGIC     credit_score INT,
+# MAGIC     flag STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/customers_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -30,13 +32,14 @@
 # MAGIC     address_line STRING,
 # MAGIC     city STRING,
 # MAGIC     state STRING,
-# MAGIC     zipcode INT
+# MAGIC     zipcode INT,
+# MAGIC     flag STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/addresses_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
 # MAGIC
 # MAGIC CREATE TABLE IF NOT EXISTS silver.checkings_silver (
-# MAGIC     checkings_id INT,
+# MAGIC     checking_id INT,
 # MAGIC     balance DOUBLE,
 # MAGIC     open_date DATE,
 # MAGIC     interest_rate DOUBLE,
@@ -44,13 +47,14 @@
 # MAGIC     routing_number STRING,
 # MAGIC     account_number STRING,
 # MAGIC     overdraft_protection STRING,
-# MAGIC     is_active STRING
+# MAGIC     is_active STRING,
+# MAGIC     flag STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/checkings_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
 # MAGIC
 # MAGIC CREATE TABLE IF NOT EXISTS silver.savings_silver (
-# MAGIC     savings_id INT,
+# MAGIC     saving_id INT,
 # MAGIC     balance DOUBLE,
 # MAGIC     open_date DATE,
 # MAGIC     interest_rate DOUBLE,
@@ -58,7 +62,8 @@
 # MAGIC     routing_number STRING,
 # MAGIC     account_number STRING,
 # MAGIC     overdraft_protection STRING,
-# MAGIC     is_active STRING
+# MAGIC     is_active STRING,
+# MAGIC     flag STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/savings_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);

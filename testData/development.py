@@ -109,23 +109,24 @@ for f in files:
 #           when new duplicates records come -> ???
 
 import pyspark.sql.functions as F
+import pyspark.sql.types as T
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
                 .dropDuplicates(["account_id", "process_date"])
                 .select(
                     F.col("account_id").cast("int"),
-                    F.col("checkings_id").cast("int"),
-                    F.col("savings_id").cast("int"),
+                    F.col("checking_id").cast("int"),
+                    F.col("saving_id").cast("int"),
                     F.col("currency").cast("string"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"))
                 )
 
 checkings_df = (spark.readStream
                 .table("bronze.checkings_bronze")
-                .dropDuplicates(["checkings_id", "process_date"])
+                .dropDuplicates(["checking_id", "process_date"])
                 .select(
-                    F.col("checkings_id").cast("int"),
+                    F.col("checking_id").cast("int"),
                     F.col("balance").cast("double"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
                     F.col("interest_rate").cast("double"),
@@ -138,9 +139,9 @@ checkings_df = (spark.readStream
 
 savings_df = (spark.readStream
                 .table("bronze.savings_bronze")
-                .dropDuplicates(["savings_id", "process_date"])
+                .dropDuplicates(["saving_id", "process_date"])
                 .select(
-                    F.col("savings_id").cast("int"),
+                    F.col("saving_id").cast("int"),
                     F.col("balance").cast("double"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
                     F.col("interest_rate").cast("double"),
@@ -190,13 +191,14 @@ class Upsert:
                 WHEN MATCHED THEN UPDATE SET *
                 WHEN NOT MATCHED THEN INSERT *
             """
-        self.update_temp = update_temp 
+        self.update_temp = update_temp
+        self.tableName = name[:-1]
         
     def upsert_to_delta(self, microBatchDF, batch):
-        # display(microBatchDF.groupBy('savings_id')
-        #         .agg(F.count('savings_id').alias('cnt'))
+        # display(microBatchDF.groupBy('saving_id')
+        #         .agg(F.count('saving_id').alias('cnt'))
         #         .filter(F.col('cnt')>1)
-        #         .select(F.col('savings_id'))
+        #         .select(F.col('saving_id'))
         #         )
         microBatchDF.createOrReplaceTempView(self.update_temp)
         microBatchDF._jdf.sparkSession().sql(self.sql_query)
@@ -204,8 +206,8 @@ class Upsert:
 accounts_merge = Upsert("accounts", "a.account_id=b.account_id")
 customers_merge = Upsert("customers", "a.customer_id=b.customer_id")
 address_merge = Upsert("addresses", "a.address_id=b.address_id")
-checkings_merge = Upsert("checkings", "a.checkings_id=b.checkings_id")
-savings_merge = Upsert("savings", "a.savings_id=b.savings_id")
+checkings_merge = Upsert("checkings", "a.checking_id=b.checking_id")
+savings_merge = Upsert("savings", "a.saving_id=b.saving_id")
 
 # COMMAND ----------
 
@@ -293,6 +295,12 @@ balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('ap
 
 # MAGIC %md
 # MAGIC # Queries
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT *
+# MAGIC FROM silver.accounts_silver;
 
 # COMMAND ----------
 

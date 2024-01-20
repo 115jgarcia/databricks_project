@@ -67,8 +67,8 @@ class generate_data():
         self.unique_customer_id =   fake.unique.random_int(100,10000)
         self.unique_account_id =    fake.unique.random_int(100,10000)
         self.unique_address_id =    fake.unique.random_int(100,10000)
-        self.unique_checkings_id =  fake.unique.random_int(100,10000)
-        self.unique_savings_id =    fake.unique.random_int(100,10000)
+        self.unique_checking_id =  fake.unique.random_int(100,10000)
+        self.unique_saving_id =    fake.unique.random_int(100,10000)
         self.updates_flag = False
     
     def get_customer_id(self):
@@ -80,32 +80,32 @@ class generate_data():
     def get_address_id(self):
         return self.unique_address_id
 
-    def get_checkings_id(self):
-        return self.unique_checkings_id
+    def get_checking_id(self):
+        return self.unique_checking_id
 
-    def get_savings_id(self):
-        return self.unique_savings_id
+    def get_saving_id(self):
+        return self.unique_saving_id
 
     def update_unique_id(self):
         inc = 1
         self.unique_customer_id += inc
         self.unique_account_id += inc
         self.unique_address_id += inc
-        self.unique_checkings_id += inc
-        self.unique_savings_id += inc
+        self.unique_checking_id += inc
+        self.unique_saving_id += inc
 
     def create_account_row(self, timestamp):
         row = {}
         row['account_id'] =     self.unique_account_id
-        row['checkings_id'] =   self.unique_checkings_id
-        row['savings_id'] =     self.unique_savings_id
+        row['checking_id'] =   self.unique_checking_id
+        row['saving_id'] =     self.unique_saving_id
         row['currency'] =       'USD'
         row['open_date'] =      timestamp
         return row
     
     def create_checkings_row(self, acc_open_timestamp):
         row = {}
-        row['checkings_id'] =           self.unique_checkings_id
+        row['checking_id'] =           self.unique_checking_id
         row['balance'] =                random.randrange(-50000000, 50000000)/100
         row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
         row['interest_rate'] =          random.randrange(0,50,1)/1000
@@ -118,7 +118,7 @@ class generate_data():
 
     def create_savings_row(self, acc_open_timestamp):
         row = {}
-        row['savings_id'] =             self.unique_savings_id
+        row['saving_id'] =             self.unique_saving_id
         row['balance'] =                random.randrange(100000, 100000000)/100
         row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
         row['interest_rate'] =          random.randrange(0,50,1)/1000
@@ -189,7 +189,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT account_number, randBalUdf(balance) as balance, checkings_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
+                SELECT account_number, randBalUdf(balance) as balance, checking_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
                 FROM _tempUpdateCreation;
                 """
             )
@@ -206,7 +206,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, savings_id
+                SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, saving_id
                 FROM _tempUpdateCreation;
                 """
             )
@@ -271,12 +271,12 @@ class generate_data():
         newRecords = spark.sql(
             """
             SELECT
-                account_id, tempCheckings.checkings_id, tempSavings.savings_id, currency, tempAccounts.open_date
+                account_id, tempCheckings.checking_id, tempSavings.saving_id, currency, tempAccounts.open_date
             FROM
                 tempAccounts LEFT JOIN tempSavings
-                    ON tempAccounts.savings_id = tempSavings.savings_id
+                    ON tempAccounts.saving_id = tempSavings.saving_id
                 LEFT JOIN tempCheckings
-                    ON tempAccounts.checkings_id = tempCheckings.checkings_id
+                    ON tempAccounts.checking_id = tempCheckings.checking_id
             """
         )
 
