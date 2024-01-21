@@ -5,8 +5,7 @@
 # MAGIC     checking_id INT,
 # MAGIC     saving_id INT,
 # MAGIC     currency STRING,
-# MAGIC     open_date DATE,
-# MAGIC     flag STRING
+# MAGIC     open_date DATE
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/accounts_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -21,8 +20,7 @@
 # MAGIC     email STRING,
 # MAGIC     ssn STRING,
 # MAGIC     occupation STRING,
-# MAGIC     credit_score INT,
-# MAGIC     flag STRING
+# MAGIC     credit_score INT
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/customers_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -32,8 +30,7 @@
 # MAGIC     address_line STRING,
 # MAGIC     city STRING,
 # MAGIC     state STRING,
-# MAGIC     zipcode INT,
-# MAGIC     flag STRING
+# MAGIC     zipcode INT
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/addresses_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -47,8 +44,7 @@
 # MAGIC     routing_number STRING,
 # MAGIC     account_number STRING,
 # MAGIC     overdraft_protection STRING,
-# MAGIC     is_active STRING,
-# MAGIC     flag STRING
+# MAGIC     is_active STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/checkings_silver'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
@@ -62,8 +58,16 @@
 # MAGIC     routing_number STRING,
 # MAGIC     account_number STRING,
 # MAGIC     overdraft_protection STRING,
-# MAGIC     is_active STRING,
-# MAGIC     flag STRING
+# MAGIC     is_active STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/savings_silver'
+# MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
+# MAGIC
+# MAGIC CREATE TABLE IF NOT EXISTS silver.quarantine_data (
+# MAGIC     pk STRING,
+# MAGIC     table_name STRING,
+# MAGIC     file_name STRING,
+# MAGIC     flag STRING
+# MAGIC )
+# MAGIC LOCATION 'gs://bankdatajg/silver/quarantine_data'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);

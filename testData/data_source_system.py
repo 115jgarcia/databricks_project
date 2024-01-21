@@ -94,6 +94,12 @@ class generate_data():
         self.unique_checking_id += inc
         self.unique_saving_id += inc
 
+    def make_negative(self, value, n=1000):
+        newValue = value
+        if random.randrange(0,n,1) == 0:
+            newValue = -newValue
+        return newValue
+
     def create_account_row(self, timestamp):
         row = {}
         row['account_id'] =     self.unique_account_id
@@ -108,8 +114,8 @@ class generate_data():
         row['checking_id'] =           self.unique_checking_id
         row['balance'] =                random.randrange(-50000000, 50000000)/100
         row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
-        row['interest_rate'] =          random.randrange(0,50,1)/1000
-        row['monthly_fee'] =            random.randrange(0,25,25)
+        row['interest_rate'] =          self.make_negative(random.randrange(0,51,1)/1000)   # 1/1000 negative
+        row['monthly_fee'] =            self.make_negative(random.randrange(0,26,25))     # 1/1000 negative
         row['routing_number'] =         fake.aba()
         row['account_number'] =         fake.iban()
         row['overdraft_protection'] =   fake.bothify(text='?', letters='YN')
@@ -118,11 +124,11 @@ class generate_data():
 
     def create_savings_row(self, acc_open_timestamp):
         row = {}
-        row['saving_id'] =             self.unique_saving_id
+        row['saving_id'] =              self.unique_saving_id
         row['balance'] =                random.randrange(100000, 100000000)/100
         row['open_date'] =              datetime.datetime.timestamp(fake.date_time_between(start_date=datetime.datetime.fromtimestamp(acc_open_timestamp),tzinfo = datetime.timezone.utc))
-        row['interest_rate'] =          random.randrange(0,50,1)/1000
-        row['deposit_limit'] =          random.randrange(5000,10000,1000)
+        row['interest_rate'] =          self.make_negative(random.randrange(0,51,1)/1000)     # 1/1000 negative
+        row['deposit_limit'] =          self.make_negative(random.randrange(5000,10001,1000))   # 1/1000 negative
         row['routing_number'] =         fake.aba()
         row['account_number'] =         fake.iban()
         row['overdraft_protection'] =   fake.bothify(text='?', letters='YN')
@@ -140,7 +146,7 @@ class generate_data():
         row['email'] =          fake.email()
         row['occupation'] =     fake.job()
         row['ssn'] =            fake.ssn()
-        row['credit_score'] =   random.randrange(300,850,1)
+        row['credit_score'] =   random.randrange(280,851,1)
         return row
 
     def create_address_row(self):
