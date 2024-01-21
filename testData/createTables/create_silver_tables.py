@@ -2,8 +2,8 @@
 # MAGIC %sql
 # MAGIC CREATE TABLE IF NOT EXISTS silver.accounts_silver (
 # MAGIC     account_id INT,
-# MAGIC     checkings_id INT,
-# MAGIC     savings_id INT,
+# MAGIC     checking_id INT,
+# MAGIC     saving_id INT,
 # MAGIC     currency STRING,
 # MAGIC     open_date DATE
 # MAGIC )
@@ -36,7 +36,7 @@
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
 # MAGIC
 # MAGIC CREATE TABLE IF NOT EXISTS silver.checkings_silver (
-# MAGIC     checkings_id INT,
+# MAGIC     checking_id INT,
 # MAGIC     balance DOUBLE,
 # MAGIC     open_date DATE,
 # MAGIC     interest_rate DOUBLE,
@@ -50,7 +50,7 @@
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
 # MAGIC
 # MAGIC CREATE TABLE IF NOT EXISTS silver.savings_silver (
-# MAGIC     savings_id INT,
+# MAGIC     saving_id INT,
 # MAGIC     balance DOUBLE,
 # MAGIC     open_date DATE,
 # MAGIC     interest_rate DOUBLE,
@@ -61,4 +61,13 @@
 # MAGIC     is_active STRING
 # MAGIC )
 # MAGIC LOCATION 'gs://bankdatajg/silver/savings_silver'
+# MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);
+# MAGIC
+# MAGIC CREATE TABLE IF NOT EXISTS silver.quarantine_data (
+# MAGIC     pk STRING,
+# MAGIC     table_name STRING,
+# MAGIC     file_name STRING,
+# MAGIC     flag STRING
+# MAGIC )
+# MAGIC LOCATION 'gs://bankdatajg/silver/quarantine_data'
 # MAGIC TBLPROPERTIES (delta.enableChangeDataFeed = true);

@@ -11,7 +11,9 @@ The following features and constraints will be added:
 - ~~Update source system sampling of update-records.~~ **1/17/2024**
 - ~~Add duplicate record creation to source system.~~ **1/18/2024**
 - ~~Add logic to handle duplicate records.~~ **1/19/2024**
-- Flag duplicate records at bronze level.
+- Quarantine records w/ a negative monthly fee or negative interest rate at silver level for checkings and savings table, respectively. 
+- Generate records starting 1 year ago and increment each batch by a day. 
+- Refactor code.
 - Orchestration of jobs in Databricks Workflow.
 - Add logic to delete certain records on request.
 - Upgrade hive_metastore to Unity Catalog.

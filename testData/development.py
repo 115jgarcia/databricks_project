@@ -80,7 +80,7 @@ def load_tables(path, name):
                 .load(path))
 
     query = (query
-                .withColumn("filename", F.input_file_name())
+                .withColumn("file_name", F.input_file_name())
                 .withColumn("process_date", F.current_timestamp()))
     
     query = (query.writeStream
@@ -115,17 +115,19 @@ accounts_df = (spark.readStream
                 .dropDuplicates(["account_id", "process_date"])
                 .select(
                     F.col("account_id").cast("int"),
-                    F.col("checkings_id").cast("int"),
-                    F.col("savings_id").cast("int"),
+                    F.col("checking_id").cast("int"),
+                    F.col("saving_id").cast("int"),
                     F.col("currency").cast("string"),
-                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"))
+                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                    F.col("file_name"),
+                    F.lit(None).alias("flag"))
                 )
 
 checkings_df = (spark.readStream
                 .table("bronze.checkings_bronze")
-                .dropDuplicates(["checkings_id", "process_date"])
+                .dropDuplicates(["checking_id", "process_date"])
                 .select(
-                    F.col("checkings_id").cast("int"),
+                    F.col("checking_id").cast("int"),
                     F.col("balance").cast("double"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
                     F.col("interest_rate").cast("double"),
@@ -133,14 +135,18 @@ checkings_df = (spark.readStream
                     F.col("routing_number").cast("string"),
                     F.col("account_number").cast("string"),
                     F.col("overdraft_protection").cast("string"),
-                    F.col("is_active").cast("string"))
+                    F.col("is_active").cast("string"),
+                    F.col("file_name"),
+                    F.when((F.col("monthly_fee") < 0) |         # Data quality checks
+                           (F.col("interest_rate") < 0.0), 
+                           "Failed data quality check.").alias("flag"))
                 )
 
 savings_df = (spark.readStream
                 .table("bronze.savings_bronze")
-                .dropDuplicates(["savings_id", "process_date"])
+                .dropDuplicates(["saving_id", "process_date"])
                 .select(
-                    F.col("savings_id").cast("int"),
+                    F.col("saving_id").cast("int"),
                     F.col("balance").cast("double"),
                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
                     F.col("interest_rate").cast("double"),
@@ -148,7 +154,11 @@ savings_df = (spark.readStream
                     F.col("routing_number").cast("string"),
                     F.col("account_number").cast("string"),
                     F.col("overdraft_protection").cast("string"),
-                    F.col("is_active").cast("string"))
+                    F.col("is_active").cast("string"),
+                    F.col("file_name"),
+                    F.when((F.col("interest_rate") < 0.0) |     # Data quality checks
+                           (F.col("deposit_limit") < 0)
+                           , "Failed data quality check.").alias("flag"))
                 )
 
 addresses_df = (spark.readStream
@@ -159,7 +169,9 @@ addresses_df = (spark.readStream
                         F.col("address_line").cast("string"),
                         F.col("city").cast("string"),
                         F.col("state").cast("string"),
-                        F.col("zipcode").cast("int"))
+                        F.col("zipcode").cast("int"),
+                        F.col("file_name"),
+                        F.lit(None).alias("flag"))
                     )
 
 customers_df = (spark.readStream
@@ -175,14 +187,17 @@ customers_df = (spark.readStream
                         F.col("email").cast("string"),
                         F.col("ssn").cast("string"),
                         F.col("occupation").cast("string"),
-                        F.col("credit_score").cast("int")
-                    ))
+                        F.col("credit_score").cast("int"),
+                        F.col("file_name"),
+                        F.when((F.col("credit_score") < 300)    # Data quality checks
+                               , "Failed data quality check.").alias("flag"))
+                    )
 
 # COMMAND ----------
 
 # create upsert class for each deduped df with additional parameter to join on PK ???
 class Upsert:
-    def __init__(self, name, join_cond, update_temp="stream_updates"):
+    def __init__(self, name, pk, join_cond, update_temp="stream_updates"):
         self.sql_query = sql_query = f"""
                 MERGE INTO silver.{name}_silver a
                 USING stream_updates b
@@ -190,22 +205,28 @@ class Upsert:
                 WHEN MATCHED THEN UPDATE SET *
                 WHEN NOT MATCHED THEN INSERT *
             """
-        self.update_temp = update_temp 
+        self.update_temp = update_temp
+        self.name = name
+        self.pk = pk
         
     def upsert_to_delta(self, microBatchDF, batch):
-        # display(microBatchDF.groupBy('savings_id')
-        #         .agg(F.count('savings_id').alias('cnt'))
+        # display(microBatchDF.groupBy('saving_id')
+        #         .agg(F.count('saving_id').alias('cnt'))
         #         .filter(F.col('cnt')>1)
-        #         .select(F.col('savings_id'))
+        #         .select(F.col('saving_id'))
         #         )
-        microBatchDF.createOrReplaceTempView(self.update_temp)
+        microBatchDF.filter("flag IS NULL").drop("file_name", "flag").createOrReplaceTempView(self.update_temp)
         microBatchDF._jdf.sparkSession().sql(self.sql_query)
+        (microBatchDF
+            .filter("flag IS NOT NULL")
+            .select(F.col(f"{self.pk}_id").cast("string").alias("pk"), F.lit(f"{self.name}_bronze").alias("table_name"), "file_name", "flag")
+            .write.format("delta").mode("append").saveAsTable("silver.quarantine_data"))
 
-accounts_merge = Upsert("accounts", "a.account_id=b.account_id")
-customers_merge = Upsert("customers", "a.customer_id=b.customer_id")
-address_merge = Upsert("addresses", "a.address_id=b.address_id")
-checkings_merge = Upsert("checkings", "a.checkings_id=b.checkings_id")
-savings_merge = Upsert("savings", "a.savings_id=b.savings_id")
+accounts_merge = Upsert("accounts", "account", "a.account_id=b.account_id")
+customers_merge = Upsert("customers", "customer", "a.customer_id=b.customer_id")
+address_merge = Upsert("addresses", "address", "a.address_id=b.address_id")
+checkings_merge = Upsert("checkings", "checking", "a.checking_id=b.checking_id")
+savings_merge = Upsert("savings", "saving", "a.saving_id=b.saving_id")
 
 # COMMAND ----------
 
@@ -275,9 +296,9 @@ balancePerState = spark.sql(
     ROUND(SUM(nvl(b.balance, 0) + nvl(c.balance, 0)),2) total
     FROM  silver.accounts_silver a LEFT JOIN
         silver.savings_silver b ON
-            a.savings_id = b.savings_id LEFT JOIN
+            a.saving_id = b.saving_id LEFT JOIN
         silver.checkings_silver c ON
-            a.checkings_id = c.checkings_id LEFT JOIN
+            a.checking_id = c.checking_id LEFT JOIN
         silver.customers_silver d ON
             a.account_id = d.account_id LEFT JOIN
         silver.addresses_silver e ON
