@@ -99,22 +99,6 @@ for f in files:
 
 # COMMAND ----------
 
-accounts_df = (spark.read
-                .table("bronze.accounts_bronze")
-                .dropDuplicates(["account_id", "process_date"])
-                .select(
-                    F.col("account_id").cast("int"),
-                    F.col("checking_id").cast("int"),
-                    F.col("saving_id").cast("int"),
-                    F.col("currency").cast("string"),
-                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
-                    F.col("file_name"),
-                    F.lit(None).alias("flag"))
-                )
-display(accounts_df)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Silver processes
 
@@ -317,20 +301,44 @@ balancePerState = spark.sql(
         silver.checkings_silver c ON
             a.checking_id = c.checking_id LEFT JOIN
         silver.customers_silver d ON
-            a.account_id = d.account_id LEFT JOIN
+            a.account_id = d.account_id RIGHT JOIN
         silver.addresses_silver e ON
             d.address_id = e.address_id
-    GROUP BY e.state
+    GROUP BY e.state;
     """
 ).cache()
 
 balancePerState.write.mode('overwrite').option('mergeSchema', 'true').saveAsTable('gold.daily_balance_per_state')
-balancePerState.withColumn('process_date', F.current_timestamp()).write.mode('append').option('mergeSchema', 'true').saveAsTable('gold.historic_balance_per_state')
+(balancePerState
+    .withColumn('process_date', F.to_date(F.lit(data_generator.get_prev_process_date()), 'yyyy-MM-dd'))
+    .write
+    .mode('append')
+    .option('mergeSchema', 'true')
+    .saveAsTable('gold.historic_balance_per_state'))
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC # Queries
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT *
+# MAGIC FROM (
+# MAGIC   SELECT 
+# MAGIC     *,
+# MAGIC     RANK() OVER(PARTITION BY process_date ORDER BY total DESC) AS rank
+# MAGIC   FROM gold.historic_balance_per_state
+# MAGIC   ORDER BY process_date DESC, total DESC)
+# MAGIC WHERE rank < 4;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT table_name, COUNT(*)
+# MAGIC FROM silver.quarantine_data
+# MAGIC GROUP BY table_name;
 
 # COMMAND ----------
 

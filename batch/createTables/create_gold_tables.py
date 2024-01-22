@@ -8,5 +8,9 @@
 # MAGIC CREATE TABLE IF NOT EXISTS gold.historic_balance_per_state (
 # MAGIC     state STRING,
 # MAGIC     total DOUBLE,
-# MAGIC     process_date TIMESTAMP
+# MAGIC     process_date DATE
 # MAGIC );
+
+# COMMAND ----------
+
+

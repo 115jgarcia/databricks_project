@@ -73,8 +73,8 @@ class generate_data():
         self.end_date =             current_date - datetime.timedelta(days=364)
         self.updates_flag =         False
     
-    def get_end_date(self):
-        return self.end_date
+    def get_prev_process_date(self):
+        return self.end_date - datetime.timedelta(days=1)
 
     def get_customer_id(self):
         return self.unique_customer_id
@@ -208,6 +208,8 @@ class generate_data():
 
             # update unique id
             self.update_unique_id()
+        
+        self.next_date()
 
         return dataset
     
