@@ -11,15 +11,21 @@ The following features and constraints will be added:
 - ~~Update source system sampling of update-records.~~ **1/17/2024**
 - ~~Add duplicate record creation to source system.~~ **1/18/2024**
 - ~~Add logic to handle duplicate records.~~ **1/19/2024**
-- Quarantine records w/ a negative monthly fee or negative interest rate at silver level for checkings and savings table, respectively. 
+- ~~Quarantine records w/ a negative monthly fee or negative interest rate at silver level for checkings and savings table, respectively.~~ **1/21/2024**
 - Generate records starting 1 year ago and increment each batch by a day. 
-- Refactor code.
-- Orchestration of jobs in Databricks Workflow.
+- Refactor batch code.
+- Refactor streaming code.
+- Schedule batch job in Databricks Workflow.
+- Schedule streaming job in Databricks Workflow.
+- Create historical load.
+- Implement as DLT(?).
+- Connect PowerBi to Databricks.
+- Have new columns slowly added over time to source system as new data is generated each time.
+- Implement tables as Type 2 SCD.
 - Add logic to delete certain records on request.
 - Upgrade hive_metastore to Unity Catalog.
 - Add dbt to project.
 - Add joint account record creation to source system
 - Add more tables to data model for possible products seen in banking such as credit cards, mortgages, etc.
-- Adapt pipeline from batch to streaming.
 
 Additional features and requirements will be added as task are completed.
