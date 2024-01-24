@@ -233,6 +233,25 @@ savings_merge = Upsert("savings", "saving", "a.saving_id=b.saving_id")
 
 mode = "append"
 
+# Have dictionary build up over time???
+
+table_dic = {
+    'accounts'    : ['account', accounts_df, accounts_merge],
+    'customers'   : ['customer', customers_df , customers_merge],
+    'addresses'   : ['address', address_df, address_merge],
+    'checkings'   : ['checking', checkings_df, checkings_merge],
+    'savings'     : ['saving', savings_df, savings_merge]  
+}
+
+# for key, value in table_dic.items():
+#     (value[0].writeStream
+#             .foreachBatch(getattr(value[1], 'upsert_to_delta'))
+#             .outputMode(mode)
+#             .option("checkpointLoation", f"{checkpoint_dir}/{key}_silver")
+#             .trigger(avilableNow=True)
+#             .start()
+#         ).awaitTermination()
+
 # Upsert silver accounts
 query = (accounts_df.writeStream
                    .foreachBatch(accounts_merge.upsert_to_delta)
