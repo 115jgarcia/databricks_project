@@ -104,12 +104,53 @@ for f in files:
 
 # COMMAND ----------
 
+# create upsert class for each deduped df with additional parameter to join on PK ???
+class Upsert:
+    def __init__(self, name, pk, join_cond, update_temp="stream_updates"):
+        self.sql_query = sql_query = f"""
+                MERGE INTO silver.{name}_silver a
+                USING stream_updates b
+                ON {join_cond}
+                WHEN MATCHED THEN UPDATE SET *
+                WHEN NOT MATCHED THEN INSERT *
+            """
+        self.update_temp = update_temp
+        self.name = name
+        self.pk = pk
+        
+    def upsert_to_delta(self, microBatchDF, batch):
+        # display(microBatchDF.groupBy('saving_id')
+        #         .agg(F.count('saving_id').alias('cnt'))
+        #         .filter(F.col('cnt')>1)
+        #         .select(F.col('saving_id'))
+        #         )
+        microBatchDF.filter("flag IS NULL").drop("file_name", "flag").createOrReplaceTempView(self.update_temp)
+        microBatchDF._jdf.sparkSession().sql(self.sql_query)
+        (microBatchDF
+            .filter("flag IS NOT NULL")
+            .select(F.col(f"{self.pk}").cast("string").alias("pk"), F.lit(f"{self.name}_bronze").alias("table_name"), "file_name", "flag")
+            .write.format("delta").mode("append").saveAsTable("silver.quarantine_data"))
+# Needs                     table_name  primary_key     join condition (a.<pk>=b.<pk>)
+# {
+#   f"{table_name}_merge" : table_name, pk,             a.pk=b.pk  
+#    }
+accounts_merge =    Upsert("accounts",  "account_id",   "a.account_id=b.account_id")
+customers_merge =   Upsert("customers", "customer_id",  "a.customer_id=b.customer_id")
+addresses_merge =   Upsert("addresses", "address_id",   "a.address_id=b.address_id")
+checkings_merge =   Upsert("checkings", "checking_id",  "a.checking_id=b.checking_id")
+savings_merge =     Upsert("savings",   "saving_id",    "a.saving_id=b.saving_id")
+
+# COMMAND ----------
+
 # removing dropDups fixes issue.
 # how to handle files w/ dup records inserting to bronze?
 # Ideal:    when new records come, only bring the newest one to update
 #           when new duplicates records come -> ???
 
 import pyspark.sql.functions as F
+# Needs             table_name
+#       Dedup       primary_key, process_date
+#       Transform   casting
 
 accounts_df = (spark.readStream
                 .table("bronze.accounts_bronze")
@@ -196,111 +237,30 @@ customers_df = (spark.readStream
 
 # COMMAND ----------
 
-# create upsert class for each deduped df with additional parameter to join on PK ???
-class Upsert:
-    def __init__(self, name, pk, join_cond, update_temp="stream_updates"):
-        self.sql_query = sql_query = f"""
-                MERGE INTO silver.{name}_silver a
-                USING stream_updates b
-                ON {join_cond}
-                WHEN MATCHED THEN UPDATE SET *
-                WHEN NOT MATCHED THEN INSERT *
-            """
-        self.update_temp = update_temp
-        self.name = name
-        self.pk = pk
-        
-    def upsert_to_delta(self, microBatchDF, batch):
-        # display(microBatchDF.groupBy('saving_id')
-        #         .agg(F.count('saving_id').alias('cnt'))
-        #         .filter(F.col('cnt')>1)
-        #         .select(F.col('saving_id'))
-        #         )
-        microBatchDF.filter("flag IS NULL").drop("file_name", "flag").createOrReplaceTempView(self.update_temp)
-        microBatchDF._jdf.sparkSession().sql(self.sql_query)
-        (microBatchDF
-            .filter("flag IS NOT NULL")
-            .select(F.col(f"{self.pk}_id").cast("string").alias("pk"), F.lit(f"{self.name}_bronze").alias("table_name"), "file_name", "flag")
-            .write.format("delta").mode("append").saveAsTable("silver.quarantine_data"))
 
-accounts_merge = Upsert("accounts", "account", "a.account_id=b.account_id")
-customers_merge = Upsert("customers", "customer", "a.customer_id=b.customer_id")
-address_merge = Upsert("addresses", "address", "a.address_id=b.address_id")
-checkings_merge = Upsert("checkings", "checking", "a.checking_id=b.checking_id")
-savings_merge = Upsert("savings", "saving", "a.saving_id=b.saving_id")
 
 # COMMAND ----------
 
 mode = "append"
-
-# Have dictionary build up over time???
-
+# Has   
+#   table_name    : [DQ_df,     merge class]
 table_dic = {
-    'accounts'    : ['account', accounts_df, accounts_merge],
-    'customers'   : ['customer', customers_df , customers_merge],
-    'addresses'   : ['address', address_df, address_merge],
-    'checkings'   : ['checking', checkings_df, checkings_merge],
-    'savings'     : ['saving', savings_df, savings_merge]  
+    'accounts'    : [accounts_df, accounts_merge],
+    'customers'   : [customers_df, customers_merge],
+    'addresses'   : [addresses_df, addresses_merge],
+    'checkings'   : [checkings_df, checkings_merge],
+    'savings'     : [savings_df, savings_merge]  
 }
 
-# for key, value in table_dic.items():
-#     (value[0].writeStream
-#             .foreachBatch(getattr(value[1], 'upsert_to_delta'))
-#             .outputMode(mode)
-#             .option("checkpointLoation", f"{checkpoint_dir}/{key}_silver")
-#             .trigger(avilableNow=True)
-#             .start()
-#         ).awaitTermination()
-
-# Upsert silver accounts
-query = (accounts_df.writeStream
-                   .foreachBatch(accounts_merge.upsert_to_delta)
-                   .outputMode(mode)
-                   .option("checkpointLocation", f"{checkpoint_dir}/accounts_silver")
-                   .trigger(availableNow=True)
-                   .start())
-
-query.awaitTermination()
-
-# Upsert silver customers
-query = (customers_df.writeStream
-                   .foreachBatch(customers_merge.upsert_to_delta)
-                   .outputMode(mode)
-                   .option("checkpointLocation", f"{checkpoint_dir}/customers_silver")
-                   .trigger(availableNow=True)
-                   .start())
-
-query.awaitTermination()
-
-# Upsert silver checkings
-query = (checkings_df.writeStream
-                   .foreachBatch(checkings_merge.upsert_to_delta)
-                   .outputMode(mode)
-                   .option("checkpointLocation", f"{checkpoint_dir}/checkings_silver")
-                   .trigger(availableNow=True)
-                   .start())
-
-query.awaitTermination()
-
-# Upsert silver savings
-query = (savings_df.writeStream
-                   .foreachBatch(savings_merge.upsert_to_delta)
-                   .outputMode(mode)
-                   .option("checkpointLocation", f"{checkpoint_dir}/savings_silver")
-                   .trigger(availableNow=True)
-                   .start())
-
-query.awaitTermination()
-
-# Upsert silver addresses
-query = (addresses_df.writeStream
-                   .foreachBatch(address_merge.upsert_to_delta)
-                   .outputMode(mode)
-                   .option("checkpointLocation", f"{checkpoint_dir}/addresses_silver")
-                   .trigger(availableNow=True)
-                   .start())
-
-query.awaitTermination()
+for key, value in table_dic.items():
+    print(f"Processing {key}.")
+    (value[0].writeStream
+            .foreachBatch(getattr(value[1], 'upsert_to_delta'))
+            .outputMode(mode)
+            .option("checkpointLoation", f"{checkpoint_dir}/{key}_silver")
+            .trigger(availableNow=True)
+            .start()
+        ).awaitTermination()
 
 # COMMAND ----------
 
