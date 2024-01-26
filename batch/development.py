@@ -104,6 +104,19 @@ for f in files:
 
 # COMMAND ----------
 
+mode = "append"
+
+table_config = {
+#   table_name  : [pk,              join_cond]
+    'accounts'  : ["account_id",    "a.account_id=b.account_id"],
+    'checkings' : ["checking_id",   "a.checking_id=b.checking_id"],
+    'savings'   : ["saving_id",     "a.saving_id=b.saving_id"],
+    'addresses' : ["address_id",    "a.address_id=b.address_id"],
+    'customers' : ["customer_id",   "a.customer_id=b.customer_id"] 
+}
+
+# COMMAND ----------
+
 # create upsert class for each deduped df with additional parameter to join on PK ???
 class Upsert:
     def __init__(self, name, pk, join_cond, update_temp="stream_updates"):
@@ -130,15 +143,13 @@ class Upsert:
             .filter("flag IS NOT NULL")
             .select(F.col(f"{self.pk}").cast("string").alias("pk"), F.lit(f"{self.name}_bronze").alias("table_name"), "file_name", "flag")
             .write.format("delta").mode("append").saveAsTable("silver.quarantine_data"))
-# Needs                     table_name  primary_key     join condition (a.<pk>=b.<pk>)
-# {
-#   f"{table_name}_merge" : table_name, pk,             a.pk=b.pk  
-#    }
-accounts_merge =    Upsert("accounts",  "account_id",   "a.account_id=b.account_id")
-customers_merge =   Upsert("customers", "customer_id",  "a.customer_id=b.customer_id")
-addresses_merge =   Upsert("addresses", "address_id",   "a.address_id=b.address_id")
-checkings_merge =   Upsert("checkings", "checking_id",  "a.checking_id=b.checking_id")
-savings_merge =     Upsert("savings",   "saving_id",    "a.saving_id=b.saving_id")
+
+for i,k in table_config.items():
+    table_config[i].append(
+        {
+            f"{i}_merge"    :   Upsert(i, k[0], k[1])
+        }
+    )
 
 # COMMAND ----------
 
@@ -148,114 +159,104 @@ savings_merge =     Upsert("savings",   "saving_id",    "a.saving_id=b.saving_id
 #           when new duplicates records come -> ???
 
 import pyspark.sql.functions as F
-# Needs             table_name
-#       Dedup       primary_key, process_date
-#       Transform   casting
 
-accounts_df = (spark.readStream
-                .table("bronze.accounts_bronze")
-                .dropDuplicates(["account_id", "process_date"])
-                .select(
-                    F.col("account_id").cast("int"),
-                    F.col("checking_id").cast("int"),
-                    F.col("saving_id").cast("int"),
-                    F.col("currency").cast("string"),
-                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
-                    F.col("file_name"),
-                    F.lit(None).alias("flag"))
-                )
+table_config['accounts'].append(
+                            (spark.readStream
+                                .table("bronze.accounts_bronze")
+                                .dropDuplicates(["account_id", "process_date"])
+                                .select(
+                                    F.col("account_id").cast("int"),
+                                    F.col("checking_id").cast("int"),
+                                    F.col("saving_id").cast("int"),
+                                    F.col("currency").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                                    F.col("file_name"),
+                                    F.lit(None).alias("flag"))
+                                )
+                            )
 
-checkings_df = (spark.readStream
-                .table("bronze.checkings_bronze")
-                .dropDuplicates(["checking_id", "process_date"])
-                .select(
-                    F.col("checking_id").cast("int"),
-                    F.col("balance").cast("double"),
-                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
-                    F.col("interest_rate").cast("double"),
-                    F.col("monthly_fee").cast("double"),
-                    F.col("routing_number").cast("string"),
-                    F.col("account_number").cast("string"),
-                    F.col("overdraft_protection").cast("string"),
-                    F.col("is_active").cast("string"),
-                    F.col("file_name"),
-                    F.when((F.col("monthly_fee") < 0) |         # Data quality checks
-                           (F.col("interest_rate") < 0.0), 
-                           "Failed data quality check.").alias("flag"))
-                )
+table_config['checkings'].append(
+                            (spark.readStream
+                                .table("bronze.checkings_bronze")
+                                .dropDuplicates(["checking_id", "process_date"])
+                                .select(
+                                    F.col("checking_id").cast("int"),
+                                    F.col("balance").cast("double"),
+                                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                                    F.col("interest_rate").cast("double"),
+                                    F.col("monthly_fee").cast("double"),
+                                    F.col("routing_number").cast("string"),
+                                    F.col("account_number").cast("string"),
+                                    F.col("overdraft_protection").cast("string"),
+                                    F.col("is_active").cast("string"),
+                                    F.col("file_name"),
+                                    F.when((F.col("monthly_fee") < 0) |         # Data quality checks
+                                        (F.col("interest_rate") < 0.0), 
+                                        "Failed data quality check.").alias("flag"))
+                                )
+                            )
 
-savings_df = (spark.readStream
-                .table("bronze.savings_bronze")
-                .dropDuplicates(["saving_id", "process_date"])
-                .select(
-                    F.col("saving_id").cast("int"),
-                    F.col("balance").cast("double"),
-                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
-                    F.col("interest_rate").cast("double"),
-                    F.col("deposit_limit").cast("double"),
-                    F.col("routing_number").cast("string"),
-                    F.col("account_number").cast("string"),
-                    F.col("overdraft_protection").cast("string"),
-                    F.col("is_active").cast("string"),
-                    F.col("file_name"),
-                    F.when((F.col("interest_rate") < 0.0) |     # Data quality checks
-                           (F.col("deposit_limit") < 0)
-                           , "Failed data quality check.").alias("flag"))
-                )
+table_config['savings'].append(
+                            (spark.readStream
+                                .table("bronze.savings_bronze")
+                                .dropDuplicates(["saving_id", "process_date"])
+                                .select(
+                                    F.col("saving_id").cast("int"),
+                                    F.col("balance").cast("double"),
+                                    F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                                    F.col("interest_rate").cast("double"),
+                                    F.col("deposit_limit").cast("double"),
+                                    F.col("routing_number").cast("string"),
+                                    F.col("account_number").cast("string"),
+                                    F.col("overdraft_protection").cast("string"),
+                                    F.col("is_active").cast("string"),
+                                    F.col("file_name"),
+                                    F.when((F.col("interest_rate") < 0.0) |     # Data quality checks
+                                        (F.col("deposit_limit") < 0)
+                                        , "Failed data quality check.").alias("flag"))
+                                )
+                            )
 
-addresses_df = (spark.readStream
-                    .table("bronze.addresses_bronze")
-                    .dropDuplicates(["address_id", "process_date"])
-                    .select(
-                        F.col("address_id").cast("int"),
-                        F.col("address_line").cast("string"),
-                        F.col("city").cast("string"),
-                        F.col("state").cast("string"),
-                        F.col("zipcode").cast("int"),
-                        F.col("file_name"),
-                        F.lit(None).alias("flag"))
-                    )
+table_config['addresses'].append(
+                            (spark.readStream
+                                .table("bronze.addresses_bronze")
+                                .dropDuplicates(["address_id", "process_date"])
+                                .select(
+                                    F.col("address_id").cast("int"),
+                                    F.col("address_line").cast("string"),
+                                    F.col("city").cast("string"),
+                                    F.col("state").cast("string"),
+                                    F.col("zipcode").cast("int"),
+                                    F.col("file_name"),
+                                    F.lit(None).alias("flag"))
+                                )
+                            )
 
-customers_df = (spark.readStream
-                    .table("bronze.customers_bronze")
-                    .dropDuplicates(["customer_id", "process_date"])
-                    .select(
-                        F.col("customer_id").cast("int"),
-                        F.col("address_id").cast("int"),
-                        F.col("account_id").cast("int"),
-                        F.col("first_name").cast("string"),
-                        F.col("last_name").cast("string"),
-                        F.to_date(F.to_timestamp(col=F.col("dob").cast("double")), "yyyy-MM-dd").alias("dob"),
-                        F.col("email").cast("string"),
-                        F.col("ssn").cast("string"),
-                        F.col("occupation").cast("string"),
-                        F.col("credit_score").cast("int"),
-                        F.col("file_name"),
-                        F.when((F.col("credit_score") < 300)    # Data quality checks
-                               , "Failed data quality check.").alias("flag"))
-                    )
+table_config['customers'].append(
+                            (spark.readStream.table("bronze.customers_bronze")
+                                .dropDuplicates(["customer_id", "process_date"])
+                                .select(
+                                    F.col("customer_id").cast("int"),
+                                    F.col("address_id").cast("int"),
+                                    F.col("account_id").cast("int"),
+                                    F.col("first_name").cast("string"),
+                                    F.col("last_name").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("dob").cast("double")), "yyyy-MM-dd").alias("dob"),
+                                    F.col("email").cast("string"),
+                                    F.col("ssn").cast("string"),
+                                    F.col("occupation").cast("string"),
+                                    F.col("credit_score").cast("int"),
+                                    F.col("file_name"),
+                                    F.when((F.col("credit_score") < 300)    # Data quality checks
+                                        , "Failed data quality check.").alias("flag"))
+                                )
+                            )
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
-mode = "append"
-# Has   
-#   table_name    : [DQ_df,     merge class]
-table_dic = {
-    'accounts'    : [accounts_df, accounts_merge],
-    'customers'   : [customers_df, customers_merge],
-    'addresses'   : [addresses_df, addresses_merge],
-    'checkings'   : [checkings_df, checkings_merge],
-    'savings'     : [savings_df, savings_merge]  
-}
-
-for key, value in table_dic.items():
-    print(f"Processing {key}.")
-    (value[0].writeStream
-            .foreachBatch(getattr(value[1], 'upsert_to_delta'))
+for key, value in table_config.items():
+    (value[3].writeStream
+            .foreachBatch(value[2][f"{key}_merge"].upsert_to_delta)
             .outputMode(mode)
             .option("checkpointLoation", f"{checkpoint_dir}/{key}_silver")
             .trigger(availableNow=True)
