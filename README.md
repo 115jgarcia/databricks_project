@@ -13,9 +13,9 @@ The following features and constraints will be added:
 - ~~Add logic to handle duplicate records.~~ **1/19/2024**
 - ~~Quarantine records w/ a negative monthly fee or negative interest rate at silver level for checkings and savings table, respectively.~~ **1/21/2024**
 - ~~Generate records starting 1 year ago and increment each batch by a day.~~ **1/22/2024**
-- Refactor batch code.
-- Refactor streaming code.
+- ~~Refactor batch code.~~ **1/25/2024**
 - Schedule batch job in Databricks Workflow.
+- Refactor streaming code.
 - Schedule streaming job in Databricks Workflow.
 - Create historical load.
 - Implement as DLT(?).
