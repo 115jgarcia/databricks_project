@@ -116,6 +116,7 @@ class generate_data():
         row['saving_id'] =      self.unique_saving_id
         row['currency'] =       'USD'
         row['open_date'] =      acc_open_timestamp
+        row['process_date'] =   datetime.datetime.timestamp(self.end_date)
         return row
     
     def create_checkings_row(self, acc_open_timestamp):
@@ -133,6 +134,7 @@ class generate_data():
         row['account_number'] =         fake.iban()
         row['overdraft_protection'] =   fake.bothify(text='?', letters='YN')
         row['is_active'] =              fake.bothify(text='?', letters='YN')
+        row['process_date'] =           datetime.datetime.timestamp(self.end_date)
         return row
 
     def create_savings_row(self, acc_open_timestamp):
@@ -150,6 +152,7 @@ class generate_data():
         row['account_number'] =         fake.iban()
         row['overdraft_protection'] =   fake.bothify(text='?', letters='YN')
         row['is_active'] =              fake.bothify(text='?', letters='YN')
+        row['process_date'] =           datetime.datetime.timestamp(self.end_date)
         return row
 
     def create_customer_row(self):
@@ -164,6 +167,7 @@ class generate_data():
         row['occupation'] =     fake.job()
         row['ssn'] =            fake.ssn()
         row['credit_score'] =   random.randrange(280,851,1)
+        row['process_date'] =   datetime.datetime.timestamp(self.end_date)
         return row
 
     def create_address_row(self):
@@ -173,6 +177,7 @@ class generate_data():
         row['city'] =           fake.city()
         row['state'] =          fake.state_abbr()
         row['zipcode'] =        fake.postcode()
+        row['process_date'] =   datetime.datetime.timestamp(self.end_date)
         return row
 
     def create_all_tables(self):
@@ -219,7 +224,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT account_number, randBalUdf(balance) as balance, checking_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, routing_number
+                SELECT account_number, randBalUdf(balance) as balance, checking_id, randIntRateUdf(interest_rate) as interest_rate, is_active, monthly_fee, open_date, overdraft_protection, process_date, routing_number
                 FROM _tempUpdateCreation;
                 """
             )
@@ -237,7 +242,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, routing_number, saving_id
+                SELECT account_number, randBalUdf(balance) as balance, deposit_limit, randIntRateUdf(interest_rate) as interest_rate, is_active, open_date, overdraft_protection, process_date, routing_number, saving_id
                 FROM _tempUpdateCreation;
                 """
             )
@@ -255,7 +260,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, randStateUdf() as state, randZipUdf() as zipcode
+                SELECT address_id, randStrAdUdf() as address_line, randCityUdf() as city, process_date, randStateUdf() as state, randZipUdf() as zipcode
                 FROM _tempUpdateCreation;
                 """
             )
@@ -273,7 +278,7 @@ class generate_data():
 
             df = spark.sql(
                 """
-                SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, ssn
+                SELECT account_id, address_id, randCreditScoreUdf() as credit_score, customer_id, dob, randEmailUdf() as email, first_name, last_name, randOccupationUdf() as occupation, process_date, ssn
                 FROM _tempUpdateCreation;
                 """
             )
@@ -305,7 +310,7 @@ class generate_data():
         newRecords = spark.sql(
             """
             SELECT
-                account_id, tempCheckings.checking_id, tempSavings.saving_id, currency, tempAccounts.open_date
+                account_id, tempCheckings.checking_id, tempSavings.saving_id, currency, tempAccounts.open_date, tempAccounts.process_date
             FROM
                 tempAccounts LEFT JOIN tempSavings
                     ON tempAccounts.saving_id = tempSavings.saving_id
@@ -346,3 +351,7 @@ class generate_data():
 
 # print(f"Executor cores: {sc.defaultParallelism}")
 # spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
+
+# COMMAND ----------
+
+
