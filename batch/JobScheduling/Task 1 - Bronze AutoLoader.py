@@ -1,4 +1,9 @@
 # Databricks notebook source
+import pyspark.sql.functions as F
+
+print(f"Executor cores: {sc.defaultParallelism}")
+spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
+
 # checkpoint directory
 checkpoint_dir = "gs://bankdatajg/checkpoint"
 
@@ -14,9 +19,7 @@ def load_tables(path, name):
                 .option("header", True)
                 .load(path))
 
-    query = (query
-                .withColumn("filename", F.input_file_name())
-                .withColumn("process_date", F.current_timestamp()))
+    query = query.withColumn("file_name", F.input_file_name())
     
     query = (query.writeStream
                 .outputMode("append")

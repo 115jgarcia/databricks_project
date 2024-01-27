@@ -1,6 +1,12 @@
 # Databricks notebook source
 import pyspark.sql.functions as F
 
+print(f"Executor cores: {sc.defaultParallelism}")
+spark.conf.set("spark.sql.shuffle.partitions", sc.defaultParallelism)
+
+# checkpoint directory
+checkpoint_dir = "gs://bankdatajg/checkpoint"
+
 class Upsert:
     def __init__(self, name, pk, join_cond, update_temp="stream_updates"):
         self.sql_query = sql_query = f"""
@@ -50,6 +56,7 @@ table_config['accounts'].append(
                                     F.col("saving_id").cast("int"),
                                     F.col("currency").cast("string"),
                                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.lit(None).alias("flag"))
                                 )
@@ -69,6 +76,7 @@ table_config['checkings'].append(
                                     F.col("account_number").cast("string"),
                                     F.col("overdraft_protection").cast("string"),
                                     F.col("is_active").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("monthly_fee") < 0) |         # Data quality checks
                                         (F.col("interest_rate") < 0.0), 
@@ -90,6 +98,7 @@ table_config['savings'].append(
                                     F.col("account_number").cast("string"),
                                     F.col("overdraft_protection").cast("string"),
                                     F.col("is_active").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("interest_rate") < 0.0) |     # Data quality checks
                                         (F.col("deposit_limit") < 0)
@@ -107,6 +116,7 @@ table_config['addresses'].append(
                                     F.col("city").cast("string"),
                                     F.col("state").cast("string"),
                                     F.col("zipcode").cast("int"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.lit(None).alias("flag"))
                                 )
@@ -126,6 +136,7 @@ table_config['customers'].append(
                                     F.col("ssn").cast("string"),
                                     F.col("occupation").cast("string"),
                                     F.col("credit_score").cast("int"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("credit_score") < 300)    # Data quality checks
                                         , "Failed data quality check.").alias("flag"))

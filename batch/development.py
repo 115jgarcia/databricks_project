@@ -57,14 +57,6 @@ mv_data.land_files_to_raw()
 
 # COMMAND ----------
 
-# checkpoint directory
-checkpoint_dir = "gs://bankdatajg/checkpoint"
-
-# raw paths
-files = dbutils.fs.ls('gs://bankdatajg/raw')
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Bronze Processes
 # MAGIC Create batch append only bronze tables w/ autoloader.
@@ -80,9 +72,7 @@ def load_tables(path, name):
                 .option("header", True)
                 .load(path))
 
-    query = (query
-                .withColumn("file_name", F.input_file_name())
-                .withColumn("process_date", F.current_timestamp()))
+    query = query.withColumn("file_name", F.input_file_name())
     
     query = (query.writeStream
                 .outputMode("append")
@@ -93,9 +83,21 @@ def load_tables(path, name):
                 .table(f"bronze.{name}_bronze"))
     query.awaitTermination()
 
+# checkpoint directory
+checkpoint_dir = "gs://bankdatajg/checkpoint"
+
+# raw paths
+files = dbutils.fs.ls('gs://bankdatajg/raw')
+
 for f in files:
     print(f"Loading: {f.path}\tTable: {f.name[:-1]}_bronze")
     load_tables(path=f.path, name=f.name[:-1])
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT *
+# MAGIC FROM bronze.accounts_bronze;
 
 # COMMAND ----------
 
@@ -141,7 +143,11 @@ class Upsert:
         microBatchDF._jdf.sparkSession().sql(self.sql_query)
         (microBatchDF
             .filter("flag IS NOT NULL")
-            .select(F.col(f"{self.pk}").cast("string").alias("pk"), F.lit(f"{self.name}_bronze").alias("table_name"), "file_name", "flag")
+            .select(
+                F.col(f"{self.pk}").cast("string").alias("pk"), 
+                F.lit(f"{self.name}_bronze").alias("table_name"), 
+                "file_name", 
+                "flag")
             .write.format("delta").mode("append").saveAsTable("silver.quarantine_data"))
 
 for i,k in table_config.items():
@@ -170,6 +176,7 @@ table_config['accounts'].append(
                                     F.col("saving_id").cast("int"),
                                     F.col("currency").cast("string"),
                                     F.to_date(F.to_timestamp(col=F.col("open_date").cast("double")), "yyyy-MM-dd").alias("open_date"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.lit(None).alias("flag"))
                                 )
@@ -189,6 +196,7 @@ table_config['checkings'].append(
                                     F.col("account_number").cast("string"),
                                     F.col("overdraft_protection").cast("string"),
                                     F.col("is_active").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("monthly_fee") < 0) |         # Data quality checks
                                         (F.col("interest_rate") < 0.0), 
@@ -210,6 +218,7 @@ table_config['savings'].append(
                                     F.col("account_number").cast("string"),
                                     F.col("overdraft_protection").cast("string"),
                                     F.col("is_active").cast("string"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("interest_rate") < 0.0) |     # Data quality checks
                                         (F.col("deposit_limit") < 0)
@@ -227,6 +236,7 @@ table_config['addresses'].append(
                                     F.col("city").cast("string"),
                                     F.col("state").cast("string"),
                                     F.col("zipcode").cast("int"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.lit(None).alias("flag"))
                                 )
@@ -246,6 +256,7 @@ table_config['customers'].append(
                                     F.col("ssn").cast("string"),
                                     F.col("occupation").cast("string"),
                                     F.col("credit_score").cast("int"),
+                                    F.to_date(F.to_timestamp(col=F.col("process_date").cast("double")), "yyyy-MM-dd").alias("process_date"),
                                     F.col("file_name"),
                                     F.when((F.col("credit_score") < 300)    # Data quality checks
                                         , "Failed data quality check.").alias("flag"))
@@ -265,6 +276,12 @@ for key, value in table_config.items():
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC SELECT *
+# MAGIC FROM silver.accounts_silver;
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC # Gold Processes
 
@@ -274,7 +291,8 @@ balancePerState = spark.sql(
     """
     SELECT 
     e.state,
-    ROUND(SUM(nvl(b.balance, 0) + nvl(c.balance, 0)),2) total
+    ROUND(SUM(nvl(b.balance, 0) + nvl(c.balance, 0)),2) total,
+    e.process_date
     FROM  silver.accounts_silver a LEFT JOIN
         silver.savings_silver b ON
             a.saving_id = b.saving_id LEFT JOIN
@@ -284,17 +302,12 @@ balancePerState = spark.sql(
             a.account_id = d.account_id RIGHT JOIN
         silver.addresses_silver e ON
             d.address_id = e.address_id
-    GROUP BY e.state;
+    GROUP BY e.state, e.process_date;
     """
 ).cache()
 
 balancePerState.write.mode('overwrite').option('mergeSchema', 'true').saveAsTable('gold.daily_balance_per_state')
-(balancePerState
-    .withColumn('process_date', F.to_date(F.lit(data_generator.get_prev_process_date()), 'yyyy-MM-dd'))
-    .write
-    .mode('append')
-    .option('mergeSchema', 'true')
-    .saveAsTable('gold.historic_balance_per_state'))
+balancePerState.write.mode('append').option('mergeSchema', 'true').saveAsTable('gold.historic_balance_per_state')
 
 # COMMAND ----------
 
