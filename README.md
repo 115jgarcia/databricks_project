@@ -14,10 +14,10 @@ The following features and constraints will be added:
 - ~~Quarantine records w/ a negative monthly fee or negative interest rate at silver level for checkings and savings table, respectively.~~ **1/21/2024**
 - ~~Generate records starting 1 year ago and increment each batch by a day.~~ **1/22/2024**
 - ~~Refactor batch code.~~ **1/25/2024**
-- Schedule batch job in Databricks Workflow.
+- ~~Schedule batch job in Databricks Workflow.~~ **1/26/2024**
 - Add custom logging to spark cluster.
 - Create code to initialize all-purpose compute cluster using Databricks CLI (IaC).
-- Create code to schedule batch job using Databricks CLI.
+- Create code to dynamically schedule batch job using Databricks CLI.
 - Refactor streaming code.
 - Schedule streaming job in Databricks Workflow.
 - Create historical load.
@@ -29,6 +29,7 @@ The following features and constraints will be added:
 - Upgrade hive_metastore to Unity Catalog.
 - Add dbt to project.
 - Add joint account record creation to source system
+- Update source system to create late-arriving records. 
 - Add more tables to data model for possible products seen in banking such as credit cards, mortgages, etc.
 
 Additional features and requirements will be added as task are completed.
