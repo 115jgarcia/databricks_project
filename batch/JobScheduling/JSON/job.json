@@ -11,7 +11,7 @@
       "task_key": "Task1-Bronze_AutoLoader",
       "run_if": "ALL_SUCCESS",
       "notebook_task": {
-        "notebook_path": "/Repos/115.jose.m@gmail.com/databricks_project/batch/JobScheduling/Task 1 - Bronze AutoLoader",
+        "notebook_path": "/Repos/<email>/databricks_project/batch/JobScheduling/Task 1 - Bronze AutoLoader",
         "source": "WORKSPACE"
       },
       "existing_cluster_id": "0106-044443-o06g8dxc",
@@ -33,7 +33,7 @@
       ],
       "run_if": "ALL_SUCCESS",
       "notebook_task": {
-        "notebook_path": "/Repos/115.jose.m@gmail.com/databricks_project/batch/JobScheduling/Task 2 - Silver Upsert",
+        "notebook_path": "/Repos/<email>/databricks_project/batch/JobScheduling/Task 2 - Silver Upsert",
         "source": "WORKSPACE"
       },
       "existing_cluster_id": "0106-044443-o06g8dxc",
@@ -55,7 +55,7 @@
       ],
       "run_if": "ALL_SUCCESS",
       "notebook_task": {
-        "notebook_path": "/Repos/115.jose.m@gmail.com/databricks_project/batch/JobScheduling/Task 3 - Gold KPIs",
+        "notebook_path": "/Repos/<email>/databricks_project/batch/JobScheduling/Task 3 - Gold KPIs",
         "source": "WORKSPACE"
       },
       "existing_cluster_id": "0106-044443-o06g8dxc",
@@ -64,6 +64,6 @@
     }
   ],
   "run_as": {
-    "user_name": "115.jose.m@gmail.com"
+    "user_name": "<email>"
   }
 }
