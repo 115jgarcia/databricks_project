@@ -15,6 +15,7 @@ The following features and constraints will be added:
 - ~~Generate records starting 1 year ago and increment each batch by a day.~~ **1/22/2024**
 - ~~Refactor batch code.~~ **1/25/2024**
 - ~~Schedule batch job in Databricks Workflow.~~ **1/26/2024**
+- Add contraints to silver tables.  
 - Add custom logging to spark cluster.
 - Create code to initialize all-purpose compute cluster using Databricks CLI (IaC).
 - Create code to dynamically schedule batch job using Databricks CLI.
