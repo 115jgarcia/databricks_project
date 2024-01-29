@@ -169,7 +169,7 @@ import pyspark.sql.functions as F
 table_config['accounts'].append(
                             (spark.readStream
                                 .table("bronze.accounts_bronze")
-                                .dropDuplicates(["account_id", "process_date"])
+                                .dropDuplicates(["account_id", "process_date"]) # Add watermarking to limit context.
                                 .select(
                                     F.col("account_id").cast("int"),
                                     F.col("checking_id").cast("int"),
